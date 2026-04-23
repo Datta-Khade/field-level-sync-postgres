@@ -50,6 +50,16 @@ function parseChange(change, lsn, sourceId) {
     const changedColumns = operation === 'UPDATE'
       ? computeDiff(oldData, newData) : null;
 
+    // Skip UPDATE events where the ONLY changed column is `updated_at`
+    // (no meaningful business data changed — just a timestamp touch).
+    if (operation === 'UPDATE' && changedColumns) {
+      const cols = Object.keys(changedColumns);
+      if (cols.length > 0 && cols.every(c => c === 'updated_at')) {
+        logger.debug('Skipping update-only-updated_at event', { table, lsn });
+        return null;
+      }
+    }
+
     const event = {
       lsn,
       sourceId,             // "crew_management_erp"
